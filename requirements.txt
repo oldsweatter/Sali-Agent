@@ -1,3 +1,4 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
 annotated-types==0.7.0
 anyio==4.9.0
 argon2-cffi==25.1.0
@@ -135,7 +136,7 @@ sympy==1.13.3
 terminado==0.18.1
 threadpoolctl==3.6.0
 tinycss2==1.4.0
-torch==2.7.1+cpu
+torch==2.7.1
 tornado==6.5.1
 tqdm==4.67.1
 traitlets==5.14.3
