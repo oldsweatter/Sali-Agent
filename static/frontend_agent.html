@@ -1,0 +1,234 @@
+
+<!DOCTYPE html>
+
+<html>
+<head>
+   
+    <title>SALI Agent</title>
+     <script src="https://cdn.jsdelivr.net/npm/microsoft-cognitiveservices-speech-sdk@latest/distrib/browser/microsoft.cognitiveservices.speech.sdk.bundle-min.js"></script>
+    <style>
+        body { font-family: sans-serif; display: grid; place-content: center; text-align: center; }
+        #speakButton { font-size: 1.5rem; padding: 1rem; cursor: pointer; }
+        #status { margin-top: 1rem; color: #555; }
+    </style>
+    <link rel="icon" href="data:,">
+</head>
+<body>
+    <h1>SALI - Your Logistics Assistant</h1>
+
+    <div id="languageSelection" class="lang-buttons">
+        <p>Please select your language:</p>
+        <button data-lang="de-DE" data-voice="de-DE-KatjaNeural">Deutsch</button>
+        <button data-lang="es-ES" data-voice="es-ES-ElviraNeural">Español</button>
+        <button data-lang="pl-PL" data-voice="pl-PL-ZofiaNeural">Polski</button>
+        <button data-lang="sv-SE" data-voice="sv-SE-SofieNeural">Svenska</button>
+        <button data-lang="cs-CZ" data-voice="cs-CZ-VlastaNeural">Čeština</button>
+        <button data-lang="sk-SK" data-voice="sk-SK-ViktoriaNeural">Slovenčina</button>
+        <button data-lang="hu-HU" data-voice="hu-HU-NoemiNeural">Magyar</button>
+        <button data-lang="ro-RO" data-voice="ro-RO-AlinaNeural">Română</button>
+        <button data-lang="ru-RU" data-voice="ru-RU-SvetlanaNeural">Русский</button>
+        <button data-lang="uk-UA" data-voice="uk-UA-PolinaNeural">Українська</button>
+        <button data-lang="fr-FR" data-voice="fr-FR-DeniseNeural">Français</button>
+        <button data-lang="it-IT" data-voice="it-IT-ElsaNeural">Italiano</button>
+        <button data-lang="pt-BR" data-voice="pt-BR-FranciscaNeural">Português</button>
+        <button data-lang="da-DK" data-voice="da-DK-ChristelNeural">Dansk</button>
+        <button data-lang="nb-NO" data-voice="nb-NO-PernilleNeural">Norsk</button>
+        <button data-lang="fi-FI" data-voice="fi-FI-NooraNeural">Suomi</button>
+        <button data-lang="lt-LT" data-voice="lt-LT-OnaNeural">Lietuvių</button>
+        <button data-lang="lv-LV" data-voice="lv-LV-EveritaNeural">Latviešu</button>
+        <button data-lang="et-EE" data-voice="et-EE-AnuNeural">Eesti</button>
+        <button data-lang="bg-BG" data-voice="bg-BG-BorianaNeural">Български</button>
+        <button data-lang="hr-HR" data-voice="hr-HR-GabrijelaNeural">Hrvatski</button>
+        <button data-lang="sl-SI" data-voice="sl-SI-PetraNeural">Slovenščina</button>
+        <button data-lang="el-GR" data-voice="el-GR-AthinaNeural">Ελληνικά</button>
+        
+    </div>
+    <button id="speakButton">🎙️ Press and Speak</button>
+    <p id="status">Click the button to start the conversation.</p>
+    <script>
+       // This event listener waits for the entire page and all scripts to be fully loaded and ready.
+        
+            
+        // --- CONFIGURATION ---
+       
+        const speechRegion = "swedencentral";
+        const regTime = "10000"; // 10 sec for listening
+        const timeout = 120000; // timeout after 2 minutes of inactivity
+
+        const speakButton = document.getElementById('speakButton');
+        const statusDiv = document.getElementById('status');
+        const languageSelectionDiv = document.getElementById('languageSelection');
+
+        let selectedLanguage = "en-US"; // Default language
+        let selectedVoice = "en-US-JennyNeural"; // Default voice
+
+        
+            let inactivityTimer;
+
+            function startInactivityTimer() {
+                clearTimeout(inactivityTimer);
+                inactivityTimer = setTimeout(() => {
+                    statusDiv.textContent = "Session timed out due to inactivity. Reloading...";
+                    window.location.reload();
+                }, timeout); 
+            }
+
+ async function getSpeechToken() {
+    try {
+        const response = await fetch('/api/get-speech-token', { method: 'POST' });
+        if (!response.ok) {
+            throw new Error(`Server error: ${response.statusText}`);
+        }
+        const data = await response.json();
+        return { token: data.token, region: data.region };
+    } catch (error) {
+        console.error("Failed to get speech token:", error);
+        statusDiv.textContent = "Error: Could not authorize speech service.";
+        return { token: null, region: null };
+    }
+}
+ async function recognizeSpeech() {
+                startInactivityTimer();
+                speakButton.disabled = true;
+                statusDiv.textContent = "Listening for " + selectedLanguage +"...";
+
+                //direct configuration
+                const { token, region } = await getSpeechToken();
+                if (!token) return; // Stop if we failed to get a token
+
+                 // Use the temporary token for configuration
+                const speechConfig = SpeechSDK.SpeechConfig.fromAuthorizationToken(token, region);
+                speechConfig.speechRecognitionLanguage = selectedLanguage;
+
+                const audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
+                const recognizer = new SpeechSDK.SpeechRecognizer(speechConfig, audioConfig);
+
+                recognizer.recognizeOnceAsync(result => {
+                    if (result.reason === SpeechSDK.ResultReason.RecognizedSpeech) {
+                        statusDiv.textContent = `You said: "${result.text}"`;
+                        sendMessageToBackend(result.text);
+                    } else {
+                        console.log(result); // Log the full result object to the console for more details
+                        statusDiv.textContent = `Recognition failed. Reason: ${result.reason}. Please check the console (F12).`;
+                        speakButton.disabled = false;
+                    }
+                });
+            }           
+ /* function recognizeSpeech() {
+                startInactivityTimer();
+                speakButton.disabled = true;
+                statusDiv.textContent = "Listening for " + selectedLanguage + "....";
+
+                //  direct configuration
+                const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(speechKey, speechRegion);
+               
+                speechConfig.setProperty(SpeechSDK.PropertyId.Speech_SegmentationSilenceTimeoutMs, regTime);
+                speechConfig.speechRecognitionLanguage = selectedLanguage; // Set the language for recognition
+
+                const audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
+                const recognizer = new SpeechSDK.SpeechRecognizer(speechConfig, audioConfig);
+
+                recognizer.recognizeOnceAsync(result => {
+                    if (result.reason === SpeechSDK.ResultReason.RecognizedSpeech) {
+                        statusDiv.textContent = `You said: "${result.text}"`;
+                        // --- Add these two lines for debugging ---
+                        console.log('Recognized speech:', result.text);
+                        console.log('Recognized speech type:', typeof result.text);
+                        sendMessageToBackend(result.text);
+                    } else {
+                        console.log('Recognized speech:', result.text);
+                        console.log('Recognized speech type:', typeof result.text);
+
+                        console.log(result); // Log the full result object to the console for more details
+                        statusDiv.textContent = `Recognition failed. Reason: ${result.reason}. Please check the console (F12).`;
+                        speakButton.disabled = false;
+                    }
+                });
+            } */
+            
+            // --- TEXT-TO-SPEECH (Speaker Output) ---
+        async function speakResponse(text) {
+                statusDiv.textContent = "SALI is speaking...";
+                const { token, region } = await getSpeechToken();
+                if (!token) return;
+
+            // Use the temporary token for configuration
+            const speechConfig = SpeechSDK.SpeechConfig.fromAuthorizationToken(token, region);
+            speechConfig.speechSynthesisVoiceName = selectedVoice;
+            const synthesizer = new SpeechSDK.SpeechSynthesizer(speechConfig);
+                
+
+                synthesizer.speakTextAsync(text,
+                    result => {
+                        synthesizer.close();
+                        if (result.reason === SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
+                            statusDiv.textContent = "Click the button to speak again.";
+                        } else {
+                            statusDiv.textContent = `Speech synthesis failed: ${result.errorDetails}`;
+                        }
+                        speakButton.disabled = false;
+                    },
+                    err => {
+                        console.error("Speech synthesis error:", err);
+                        synthesizer.close();
+                        speakButton.disabled = false;
+                    }
+                );
+            }
+
+            // --- LANGUAGE SELECTION LOGIC ---
+        languageSelectionDiv.addEventListener('click', (event) => {
+            if (event.target.tagName === 'BUTTON') {
+                selectedLanguage = event.target.getAttribute('data-lang');
+                selectedVoice = event.target.getAttribute('data-voice');
+                
+                statusDiv.textContent = `Language set to ${event.target.textContent}.`;
+                
+                // Hide language buttons and show the speak button
+                languageSelectionDiv.style.display = 'none';
+                speakButton.style.display = 'inline-block';
+                
+                // Speak a confirmation in the selected language
+                speakResponse(`You have selected ${event.target.textContent}. How can I help you?`);
+            }
+        });
+            
+
+         
+            // --- API COMMUNICATION ---
+        async function sendMessageToBackend(text) {
+            statusDiv.textContent = "Sending to SALI...";
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    // Send both the message and the selected language
+                    body: JSON.stringify({ message: text, language: selectedLanguage })
+                });
+
+                const data = await response.json();
+                speakResponse(data.reply);
+
+            } catch (error) {
+                console.error("Error communicating with backend:", error);
+                statusDiv.textContent = "Error connecting to the agent.";
+                speakButton.disabled = false;
+            }
+        }
+            
+            // --- INITIALIZATION ---
+            // Start the inactivity timer when the page loads
+            startInactivityTimer();
+            window.onload = function() {
+            const initialGreeting = "Welcome to Salinen Austria AG! I am SALI your Assistant. Please select a language to proceed and press the button to speak.";
+            speakResponse(initialGreeting);
+            speakButton.addEventListener("click", recognizeSpeech);
+           
+            
+        };
+
+    </script>
+    
+</body>
+
+</html>

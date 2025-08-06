@@ -1,0 +1,13 @@
+# Python cache
+__pycache__/
+
+# Node.js dependencies
+node_modules/
+
+test_search/
+
+#temporary dump
+dump/
+run_agent/
+
+.env
